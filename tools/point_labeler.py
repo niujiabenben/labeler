@@ -41,7 +41,8 @@ class PointLabeler(lib.labeler.Labeler):
 
     def _find_selected_points(self):
         bbox = self.cache_data or lib.labeler.BoundingBox()
-        return [pt for pt in self.curr_annotations if bbox.is_inside(*pt)]
+        return [pt for pt in self.curr_annotations
+                if bbox.valid() and bbox.contains(point=pt)]
 
     def _draw_curr_image(self):
         show = super()._draw_curr_image()
@@ -50,8 +51,8 @@ class PointLabeler(lib.labeler.Labeler):
         for x, y in self._find_selected_points():
             cv2.circle(show, (x, y), 8, (0, 0, 255), thickness=-1)
         if self.cache_data and self.cache_data.valid():
-            pt1 = (self.cache_data.x1, self.cache_data.y1)
-            pt2 = (self.cache_data.x2, self.cache_data.y2)
+            pt1 = self.cache_data.top_left
+            pt2 = self.cache_data.bottom_right
             cv2.rectangle(show, pt1, pt2, (0, 0, 255), thickness=2)
         return show
 
@@ -69,7 +70,7 @@ class PointLabeler(lib.labeler.Labeler):
             if self.cache_data.x1 == x and self.cache_data.y1 == y:
                 self.curr_annotations.append((x, y))
                 self.cache_data = None
-            elif self.cache_data.get_area() < 400:
+            elif self.cache_data.area < 400:
                 self.cache_data = None
         elif event == cv2.EVENT_MOUSEMOVE:
             # 这个flag表示鼠标拖动时左键为按下状态
