@@ -9,14 +9,11 @@ class BoundingBox:
         return min(self.x1, self.y1, self.x2, self.y2) >= 0
 
     def contains(self, *, point=None, bbox=None):
-        if point:
-            x, y = point
-            x1, y1, x2, y2 = self.bbox
-            return x1 <= x < x2 and y1 <= y < y2
-        if bbox:
-            a1, b1, a2, b2 = bbox.bbox
-            x1, y1, x2, y2 = self.bbox
-            return x1 <= a1 < a2 <= x2 and y1 <= b1 < b2 <= y2
+        if point is not None:
+            bbox = BoundingBox(*point, *point)
+        a1, b1, a2, b2 = bbox.bbox
+        x1, y1, x2, y2 = self.bbox
+        return x1 <= a1 <= a2 <= x2 and y1 <= b1 <= b2 <= y2
         return True
 
     def intersect(self, other):
@@ -26,13 +23,13 @@ class BoundingBox:
         y1 = max(sy1, oy1)
         x2 = min(sx2, ox2)
         y2 = min(sy2, oy2)
-        if x1 < x2 and y1 < y2:
+        if x1 <= x2 and y1 <= y2:
             return BoundingBox(x1, y1, x2, y2)
         return BoundingBox()
 
     def iou(self, other):
         intersect = self.intersect(other)
-        return intersect / (self.area + other.area - intersect.area)
+        return intersect.area / (self.area + other.area - intersect.area)
 
     @property
     def top_left(self):
@@ -48,11 +45,11 @@ class BoundingBox:
 
     @property
     def width(self):
-        return abs(self.x1 - self.x2)
+        return abs(self.x1 - self.x2) + 1
 
     @property
     def height(self):
-        return abs(self.y1 - self.y2)
+        return abs(self.y1 - self.y2) + 1
 
     @property
     def area(self):
@@ -69,7 +66,7 @@ class BoundingBox:
 
     def __str__(self):
         x1, y1, x2, y2 = self.bbox
-        return f"bbox: [{x1}, {y1}, {x2}, {y2}]"
+        return f"bbox: [x1 = {x1}, y1 = {y1}, x2 = {x2}, y2 = {y2}]"
 
 
 if __name__ == "__main__":

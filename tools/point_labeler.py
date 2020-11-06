@@ -1,8 +1,14 @@
 #! /home/chenli/Documents/tools/anaconda3/envs/pytorch/bin/python
 # coding: utf-8
 
+"""点标注的示例程序.
+
+数据的layout请参考: lib.labeler.Labeler.
+
+左键单击选点, 左键按下拖动选择区域, 右键单击删除区域中的点.
+"""
+
 import cv2
-import copy
 import logging
 
 import init
