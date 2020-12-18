@@ -66,10 +66,11 @@ class Labeler:
     def _load_curr_annotations(self):
         name = self.samples[self.samples_id] + ".json"
         path = os.path.join(self.ann_dir, name)
-        if not os.path.exists(path): return []
+        if not os.path.exists(path): return None
         return lib.util.read_json_file(path)
 
     def _save_curr_annotations(self):
+        if not self.curr_annotations: return
         name = self.samples[self.samples_id] + ".json"
         path = os.path.join(self.ann_dir, name)
         lib.util.dump_to_json(self.curr_annotations, path)
