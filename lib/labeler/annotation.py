@@ -8,6 +8,15 @@ class BoundingBox:
     def valid(self):
         return min(self.x1, self.y1, self.x2, self.y2) >= 0
 
+    def increase(self, scale):
+        self.x1 = int(round(self.x1 * scale))
+        self.y1 = int(round(self.y1 * scale))
+        self.x2 = int(round(self.x2 * scale))
+        self.y2 = int(round(self.y2 * scale))
+
+    def decrease(self, scale):
+        self.increase(1.0 / scale)
+
     def contains(self, *, point=None, bbox=None):
         if point is not None:
             bbox = BoundingBox(*point, *point)

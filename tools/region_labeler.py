@@ -20,35 +20,27 @@ import lib.labeler
 class RegionLabeler(lib.labeler.Labeler):
     def __init__(self, root_dir, scale=1.0):
         super().__init__(root_dir)
-        self.scale = scale
+        self.base_scale = scale
+        self.curr_scale = scale
+        self.curr_roi = None
         self.selected_region = None
         self.cursor = None
 
     def _load_curr_image(self):
         image = super()._load_curr_image()
         height, width = image.shape[:2]
-        height = int(round(height * self.scale))
-        width = int(round(width * self.scale))
-        return cv2.resize(image, (width, height))
-
-    def _load_curr_annotations(self):
-        annotations = []
-        for bbox in (super()._load_curr_annotations() or []):
-            bbox = [int(round(v * self.scale)) for v in bbox]
-            annotations.append(lib.labeler.BoundingBox(*bbox))
-        return annotations
-
-    def _save_curr_annotations(self):
-        old_annotations = self.curr_annotations
-        self.curr_annotations = []
-        for annotation in old_annotations:
-            bbox = [int(round(v / self.scale)) for v in annotation.bbox]
-            self.curr_annotations.append(bbox)
-        super()._save_curr_annotations()
-        self.curr_annotations = old_annotations
+        self.curr_roi
 
     def _draw_curr_image(self):
-        show = super()._draw_curr_image()
+        x1, y1, x2, y2 = self.curr_roi
+        show = self.curr_image[y1:y2, x1:x2, :]
+
+        width, height = x2 - x1
+        cv2.resize()
+
+        text = f"Progress: {self.samples_id + 1}/{len(self.samples)}"
+        show = lib.util.draw_textlines(show, (20, 20), text, (0, 0, 255))
+
         for bbox in self.curr_annotations:
             pt1, pt2 = bbox.top_left, bbox.bottom_right
             cv2.rectangle(show, pt1, pt2, (0, 0, 255), thickness=1)

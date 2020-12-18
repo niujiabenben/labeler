@@ -25,11 +25,9 @@ class Labeler:
     ${root_dir}/snapshot.json: 标注进度文件
 
     继承本类时, 需要注意:
-    1. self.curr_annotations纪录当前样本的标注信息, 其初始值为: [], 如果目标的
-       annotation还包含其他信息, 可以重载self._load_curr_annotations()和
-       self._save_curr_annotations()
-    2. self.cache_data纪录标注过程中的中间信息, 其初始值为: None. 且每次切换样本
-       的时候, 这个变量的值也会被重置.
+    1. self.curr_annotations纪录当前样本的标注信息, 其初始值为: None
+    2. self.cache_data纪录标注过程中的中间信息, 其初始值为: None.
+       每次切换样本的时候, 这个变量的值也会被重置.
     """
 
     def __init__(self, root_dir):
@@ -43,6 +41,7 @@ class Labeler:
         self.curr_image = None
         self.curr_annotations = None
         self.cache_data = None
+        self._load_curr_sample()
 
     def _load_snapshot(self):
         if os.path.exists(self.snapshot_file):
@@ -56,24 +55,34 @@ class Labeler:
             "samples_id": self.samples_id
         }, self.snapshot_file)
 
-    def _load_curr_image(self):
-        name = self.samples[self.samples_id] + ".jpg"
+    def _load_image(self, samples_id):
+        name = self.samples[samples_id] + ".jpg"
         path = os.path.join(self.img_dir, name)
         image = cv2.imread(path, 1)
         assert image is not None, f"Failed to load image: {path}"
         return image
 
-    def _load_curr_annotations(self):
-        name = self.samples[self.samples_id] + ".json"
+    def _load_annotations(self, samples_id):
+        name = self.samples[samples_id] + ".json"
         path = os.path.join(self.ann_dir, name)
         if not os.path.exists(path): return None
         return lib.util.read_json_file(path)
 
-    def _save_curr_annotations(self):
+    def _load_curr_sample(self):
+        self.curr_image = self._load_image(self.samples_id)
+        self.curr_annotations = self._load_annotations(self.samples_id)
+        self.cache_data = None
+
+    def _save_annotations(self):
         if not self.curr_annotations: return
         name = self.samples[self.samples_id] + ".json"
         path = os.path.join(self.ann_dir, name)
         lib.util.dump_to_json(self.curr_annotations, path)
+
+    def _save_curr_sample(self):
+        self._save_annotations()
+        self._save_snapshot()
+        self.cache_data = None
 
     def _move(self, step):
         samples_id = self.samples_id + step
@@ -82,11 +91,9 @@ class Labeler:
         elif samples_id >= len(self.samples):
             logging.info("We reach the end.")
         else:
-            self._save_curr_annotations()
+            self._save_curr_sample()
             self.samples_id = samples_id
-            self.curr_image = self._load_curr_image()
-            self.curr_annotations = self._load_curr_annotations()
-            self.cache_data = None
+            self._load_curr_sample()
 
     def _draw_curr_image(self):
         # 这里仅仅在图像中显示进度, 需要重载此函数来画标注信息
@@ -110,23 +117,18 @@ class Labeler:
         elif key == ord("b"):
             self._move(-1)
         elif key == ord("s"):
-            self._save_snapshot()
-            self._save_curr_annotations()
-            self.cache_data = None
+            self._save_curr_sample()
 
     def run(self):
         cv2.namedWindow("img")
         cv2.setMouseCallback("img", _on_mouse_callback, self)
 
-        self.curr_image = self._load_curr_image()
-        self.curr_annotations = self._load_curr_annotations()
         while True:
             display = self._draw_curr_image()
             cv2.imshow("img", display)
             key = cv2.waitKey(20)
             if key == 27:
-                self._save_curr_annotations()
-                self._save_snapshot()
+                self._save_curr_sample()
                 break
             self._key_callback(key)
 

@@ -16,6 +16,7 @@ def draw_textlines(image, origin, textlines, color, size=26, thickness=2):
     img = PIL.Image.fromarray(image)
     draw = PIL.ImageDraw.Draw(img)
     font = PIL.ImageFont.truetype('simsun.ttc', size)
+    if isinstance(textlines, str): textlines = [textlines]
     for n, text in enumerate(textlines):
         offset_y = n * size + thickness
         for i in range(0, thickness):
