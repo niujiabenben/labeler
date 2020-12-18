@@ -11,10 +11,11 @@ class BoundingBox:
     def contains(self, *, point=None, bbox=None):
         if point is not None:
             bbox = BoundingBox(*point, *point)
+        if isinstance(bbox, (tuple, list)):
+            bbox = BoundingBox(*bbox)
         a1, b1, a2, b2 = bbox.bbox
         x1, y1, x2, y2 = self.bbox
         return x1 <= a1 <= a2 <= x2 and y1 <= b1 <= b2 <= y2
-        return True
 
     def intersect(self, other):
         sx1, sy1, sx2, sy2 = self.bbox
@@ -41,7 +42,9 @@ class BoundingBox:
 
     @property
     def bbox(self):
-        return (*self.top_left, *self.bottom_right)
+        x1, y1 = self.top_left
+        x2, y2 = self.bottom_right
+        return x1, y1, x2, y2
 
     @property
     def width(self):
