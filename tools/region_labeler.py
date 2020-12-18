@@ -22,6 +22,7 @@ class RegionLabeler(lib.labeler.Labeler):
         super().__init__(root_dir)
         self.scale = scale
         self.selected_region = None
+        self.cursor = None
 
     def _load_curr_image(self):
         image = super()._load_curr_image()
@@ -59,6 +60,11 @@ class RegionLabeler(lib.labeler.Labeler):
             pt1 = self.cache_data.top_left
             pt2 = self.cache_data.bottom_right
             cv2.rectangle(show, pt1, pt2, (0, 0, 255), thickness=1)
+        if (not self.cache_data) and self.cursor:
+            x, y = self.cursor
+            height, width = show.shape[:2]
+            cv2.line(show, (x, y), (width, y), (0, 0, 255), 1)
+            cv2.line(show, (x, y), (x, height), (0, 0, 255), 1)
         return show
 
     def _select_region(self, x, y):
@@ -66,7 +72,7 @@ class RegionLabeler(lib.labeler.Labeler):
         selected = [bbox for bbox in self.curr_annotations
                     if bbox.contains(point=(x, y))]
         if not selected: return None
-        return max(selected, key=lambda bbox: bbox.erea)
+        return max(selected, key=lambda bbox: bbox.area)
 
     def _delete_selected_region(self):
         if self.selected_region:
@@ -107,5 +113,5 @@ class RegionLabeler(lib.labeler.Labeler):
 
 if __name__ == "__main__":
     lib.util.initialize_logger()
-    RegionLabeler("../data", scale=0.75).run()
+    RegionLabeler("../data", scale=0.55).run()
     print("Done!")
