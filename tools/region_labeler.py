@@ -46,7 +46,7 @@ class RegionLabeler(lib.labeler.Labeler):
         super()._save_annotations(annotations)
 
     def _draw_rectangle(self, image, bbox, color, thickness=1):
-        if not self.curr_roi.contains(bbox): return
+        if not self.curr_roi.contains(bbox=bbox): return
         offset_x, offset_y = self.curr_roi.top_left
         bbox = copy.deepcopy(bbox)
         bbox.translate(-offset_x, -offset_y)
@@ -113,6 +113,20 @@ class RegionLabeler(lib.labeler.Labeler):
                 if self.cache_data.area > 400:
                     self.curr_annotations.append(self.cache_data)
                 self.cache_data = None
+        elif event == cv2.EVENT_LBUTTONUP:
+            if ((self.cache_data is not None) and
+                    (self.cache_data.x1 != x) and
+                    (self.cache_data.y1 != y)):
+                self.cache_data.x2 = x
+                self.cache_data.y2 = y
+                self.cache_data.decrease(self.curr_scale)
+                self.cache_data.translate(*self.curr_roi.top_left)
+                if self.cache_data.area > 2500:
+                    scale_1 = self.curr_roi.width / self.cache_data.width
+                    scale_2 = self.curr_roi.height / self.cache_data.height
+                    self.curr_scale *= min(scale_1, scale_2)
+                    self.curr_roi = self.cache_data
+                self.cache_data = None
         elif event == cv2.EVENT_MOUSEMOVE:
             if self.cache_data is None:
                 self.selected_region = self._select_region(x, y)
@@ -129,6 +143,10 @@ class RegionLabeler(lib.labeler.Labeler):
         super()._key_callback(key)
         if key == ord("d"):  # 按d删除选中的区域
             self._delete_selected_region()
+        elif key == ord("a"):
+            self.curr_scale = self.base_scale
+            height, width = self.curr_image.shape[:2]
+            self.curr_roi = lib.labeler.BoundingBox(0, 0, width, height)
 
 
 if __name__ == "__main__":
