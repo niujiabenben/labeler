@@ -134,8 +134,13 @@ class RegionLabeler(lib.labeler.Labeler):
                 self.cache_data.x2 = x
                 self.cache_data.y2 = y
             self.cursor = (x, y)
+        # 右键删除选中区域
         elif event == cv2.EVENT_RBUTTONDOWN:
             self._delete_selected_region()
+        # 鼠标滚轮缩放图像
+        elif event == cv2.EVENT_MOUSEWHEEL:
+            scale = 0.99 if flags > 0 else 1.01
+            self.curr_scale *= scale
 
     def _key_callback(self, key):
         if key != 255 and key != -1:
