@@ -10,6 +10,7 @@
 
 import os
 import cv2
+import copy
 import logging
 
 import init
@@ -26,28 +27,50 @@ class RegionLabeler(lib.labeler.Labeler):
         self.selected_region = None
         self.cursor = None
 
-    def _load_curr_image(self):
-        image = super()._load_curr_image()
-        height, width = image.shape[:2]
-        self.curr_roi
+    def _load_annotations(self, samples_id):
+        annotations = super()._load_annotations(samples_id)
+        if annotations is None: return []
+        return [lib.labeler.BoundingBox(*ann) for ann in annotations]
+
+    def _load_curr_sample(self):
+        super()._load_curr_sample()
+        height, width = self.curr_image.shape[:2]
+        self.curr_scale = self.base_scale
+        self.curr_roi = lib.labeler.BoundingBox(0, 0, width, height)
+        self.selected_region = None
+        self.cursor = None
+
+    def _save_annotations(self, annotations):
+        if not annotations: return
+        annotations = [ann.bbox for ann in annotations]
+        super()._save_annotations(annotations)
+
+    def _draw_rectangle(self, image, bbox, color, thickness=1):
+        if not self.curr_roi.contains(bbox): return
+        offset_x, offset_y = self.curr_roi.top_left
+        bbox = copy.deepcopy(bbox)
+        bbox.translate(-offset_x, -offset_y)
+        bbox.increase(self.curr_scale)
+        pt1, pt2 = bbox.top_left, bbox.bottom_right
+        cv2.rectangle(image, pt1, pt2, color, thickness)
 
     def _draw_curr_image(self):
-        x1, y1, x2, y2 = self.curr_roi
+        # extract patch & resize
+        x1, y1, x2, y2 = self.curr_roi.bbox
         show = self.curr_image[y1:y2, x1:x2, :]
-
-        width, height = x2 - x1
-        cv2.resize()
-
+        height, width = show.shape[:2]
+        new_height = int(round(height * self.curr_scale))
+        new_width = int(round(width * self.curr_scale))
+        show = cv2.resize(show, (new_width, new_height))
+        # draw progress
         text = f"Progress: {self.samples_id + 1}/{len(self.samples)}"
         show = lib.util.draw_textlines(show, (20, 20), text, (0, 0, 255))
-
+        # draw rectangles (bbox相对于原始图像)
         for bbox in self.curr_annotations:
-            pt1, pt2 = bbox.top_left, bbox.bottom_right
-            cv2.rectangle(show, pt1, pt2, (0, 0, 255), thickness=1)
+            self._draw_rectangle(show, bbox, (0, 0, 255))
         if self.selected_region:
-            pt1 = self.selected_region.top_left
-            pt2 = self.selected_region.bottom_right
-            cv2.rectangle(show, pt1, pt2, (0, 0, 255), thickness=2)
+            self._draw_rectangle(show, self.selected_region, (0, 0, 255), 2)
+        # draw rectangles (bbox相对于显示窗口)
         if self.cache_data and self.cache_data.valid():
             pt1 = self.cache_data.top_left
             pt2 = self.cache_data.bottom_right
@@ -61,6 +84,9 @@ class RegionLabeler(lib.labeler.Labeler):
 
     def _select_region(self, x, y):
         if not self.curr_annotations: return None
+        offset_x, offset_y = self.curr_roi.top_left
+        x = int(round(x / self.curr_scale)) + offset_x
+        y = int(round(y / self.curr_scale)) + offset_y
         selected = [bbox for bbox in self.curr_annotations
                     if bbox.contains(point=(x, y))]
         if not selected: return None
@@ -82,6 +108,8 @@ class RegionLabeler(lib.labeler.Labeler):
             else:
                 self.cache_data.x2 = x
                 self.cache_data.y2 = y
+                self.cache_data.decrease(self.curr_scale)
+                self.cache_data.translate(*self.curr_roi.top_left)
                 if self.cache_data.area > 400:
                     self.curr_annotations.append(self.cache_data)
                 self.cache_data = None

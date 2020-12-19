@@ -1,6 +1,7 @@
 #! /home/chenli/Documents/tools/anaconda3/envs/pytorch/bin/python
 # coding: utf-8
 
+
 class BoundingBox:
     def __init__(self, x1=-1, y1=-1, x2=-1, y2=-1):
         self.x1, self.y1, self.x2, self.y2 = x1, y1, x2, y2
@@ -16,6 +17,12 @@ class BoundingBox:
 
     def decrease(self, scale):
         self.increase(1.0 / scale)
+
+    def translate(self, offset_x, offset_y):
+        self.x1 += offset_x
+        self.x2 += offset_x
+        self.y1 += offset_y
+        self.y2 += offset_y
 
     def contains(self, *, point=None, bbox=None):
         if point is not None:

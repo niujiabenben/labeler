@@ -41,7 +41,6 @@ class Labeler:
         self.curr_image = None
         self.curr_annotations = None
         self.cache_data = None
-        self._load_curr_sample()
 
     def _load_snapshot(self):
         if os.path.exists(self.snapshot_file):
@@ -73,14 +72,14 @@ class Labeler:
         self.curr_annotations = self._load_annotations(self.samples_id)
         self.cache_data = None
 
-    def _save_annotations(self):
-        if not self.curr_annotations: return
+    def _save_annotations(self, annotations):
+        if not annotations: return
         name = self.samples[self.samples_id] + ".json"
         path = os.path.join(self.ann_dir, name)
-        lib.util.dump_to_json(self.curr_annotations, path)
+        lib.util.dump_to_json(annotations, path)
 
     def _save_curr_sample(self):
-        self._save_annotations()
+        self._save_annotations(self.curr_annotations)
         self._save_snapshot()
         self.cache_data = None
 
@@ -123,6 +122,7 @@ class Labeler:
         cv2.namedWindow("img")
         cv2.setMouseCallback("img", _on_mouse_callback, self)
 
+        self._load_curr_sample()
         while True:
             display = self._draw_curr_image()
             cv2.imshow("img", display)
