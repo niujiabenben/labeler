@@ -3,3 +3,4 @@
 
 from lib.labeler.annotation import BoundingBox
 from lib.labeler.labeler import Labeler
+from lib.labeler.labeler import ScaleLabeler

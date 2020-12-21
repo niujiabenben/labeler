@@ -159,11 +159,32 @@ class ScaleLabeler(Labeler):
         self.curr_roi = None
         self.cache_roi = None
 
+    def _map_to(self, point):
+        offset_x, offset_y = self.curr_roi.top_left
+        x = (point[0] - offset_x) * self.curr_scale
+        y = (point[1] - offset_y) * self.curr_scale
+        return int(round(x)), int(round(y))
+
+    def _map_back(self, point):
+        offset_x, offset_y = self.curr_roi.top_left
+        x = point[0] / self.curr_scale + offset_x
+        y = point[1] / self.curr_scale + offset_y
+        return int(round(x)), int(round(y))
+
     def _load_curr_sample(self):
         super()._load_curr_sample()
         height, width = self.curr_image.shape[:2]
         self.curr_roi = lib.labeler.BoundingBox(0, 0, width, height)
+        self.curr_scale = self.base_scale
         self.cache_roi = None
+
+    def _draw_bounding_box(self, image, bbox, color, thickness):
+        if bbox is None: return image
+        if not bbox.valid(): return image
+        pt1 = self._map_to(bbox.top_left)
+        pt2 = self._map_to(bbox.bottom_right)
+        cv2.rectangle(image, pt1, pt2, color, thickness=thickness)
+        return image
 
     def _draw_curr_image(self):
         x1, y1, x2, y2 = self.curr_roi.bbox
@@ -172,10 +193,13 @@ class ScaleLabeler(Labeler):
         new_height = int(round(height * self.curr_scale))
         new_width = int(round(width * self.curr_scale))
         show = cv2.resize(show, (new_width, new_height))
-        return self._draw_text_lines(copy.deepcopy(show))
+        show = self._draw_text_lines(copy.deepcopy(show))
+        show = self._draw_bounding_box(show, self.cache_roi, (0, 0, 255), 1)
+        return show
 
     def _mouse_callback(self, event, x, y, flags):
         super()._mouse_callback(event, x, y, flags)
+        x, y =  self._map_back(point=(x, y))
         if event == cv2.EVENT_LBUTTONDOWN:
             self.cache_roi = lib.labeler.BoundingBox()
             self.cache_roi.x1 = x
@@ -185,8 +209,6 @@ class ScaleLabeler(Labeler):
                 self.cache_roi.x2 = x
                 self.cache_roi.y2 = y
                 if self.cache_roi.area > 2500:
-                    self.cache_roi.decrease(self.curr_scale)
-                    self.cache_roi.translate(*self.curr_roi.top_left)
                     scale_1 = self.curr_roi.width / self.cache_roi.width
                     scale_2 = self.curr_roi.height / self.cache_roi.height
                     self.curr_scale *= min(scale_1, scale_2)

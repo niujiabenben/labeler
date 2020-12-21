@@ -143,8 +143,7 @@ class RegionLabeler(lib.labeler.Labeler):
             self.curr_scale *= scale
 
     def _key_callback(self, key):
-        if key != 255 and key != -1:
-            logging.info("Pressed key: %d", key)
+
         super()._key_callback(key)
         if key == ord("d"):  # 按d删除选中的区域
             self._delete_selected_region()
