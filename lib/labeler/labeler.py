@@ -203,7 +203,7 @@ class ScaleLabeler(Labeler):
 
     def _mouse_callback(self, event, x, y, flags):
         super()._mouse_callback(event, x, y, flags)
-        x, y =  self._map_back(point=(x, y))
+        x, y = self._map_back(point=(x, y))
         if event == cv2.EVENT_LBUTTONDOWN:
             self.cache_roi = lib.labeler.BoundingBox()
             self.cache_roi.x1 = x
@@ -219,9 +219,12 @@ class ScaleLabeler(Labeler):
                     self.curr_roi = self.cache_roi
             self.cache_roi = None
         elif event == cv2.EVENT_MOUSEMOVE:
-            if self.cache_roi is not None:
-                self.cache_roi.x2 = x
-                self.cache_roi.y2 = y
+            if flags == cv2.EVENT_FLAG_LBUTTON:
+                if self.cache_roi is not None:
+                    self.cache_roi.x2 = x
+                    self.cache_roi.y2 = y
+            else:
+                self.cache_roi = None
         elif event == cv2.EVENT_MOUSEWHEEL:
             scale = 0.99 if flags > 0 else 1.01
             self.curr_scale *= scale

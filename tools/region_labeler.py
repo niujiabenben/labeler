@@ -100,6 +100,8 @@ class RegionLabeler(lib.labeler.ScaleLabeler):
         super()._key_callback(key)
         if key == ord("d"):  # 按d删除选中的区域
             self._delete_selected_region()
+        elif key == ord("c"):
+            self.curr_annotations = []
 
 
 if __name__ == "__main__":
