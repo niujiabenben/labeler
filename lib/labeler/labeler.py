@@ -186,13 +186,17 @@ class ScaleLabeler(Labeler):
         cv2.rectangle(image, pt1, pt2, color, thickness=thickness)
         return image
 
-    def _draw_curr_image(self):
-        x1, y1, x2, y2 = self.curr_roi.bbox
-        show = self.curr_image[y1:y2, x1:x2, :]
-        height, width = show.shape[:2]
+    def _extract_image(self, image, roi):
+        x1, y1, x2, y2 = roi.bbox
+        image = image[y1:y2, x1:x2, :]
+        height, width = image.shape[:2]
         new_height = int(round(height * self.curr_scale))
         new_width = int(round(width * self.curr_scale))
-        show = cv2.resize(show, (new_width, new_height))
+        image = cv2.resize(image, (new_width, new_height))
+        return image
+
+    def _draw_curr_image(self):
+        show = self._extract_image(self.curr_image, self.curr_roi)
         show = self._draw_text_lines(copy.deepcopy(show))
         show = self._draw_bounding_box(show, self.cache_roi, (0, 0, 255), 1)
         return show

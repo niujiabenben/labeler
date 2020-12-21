@@ -25,6 +25,11 @@ class PointLabeler(lib.labeler.ScaleLabeler):
     def _load_annotations(self, samples_id):
         return super()._load_annotations(samples_id) or []
 
+    def _load_curr_sample(self):
+        super()._load_curr_sample()
+        self.cache_point = None
+        self.selected_point = None
+
     def _draw_curr_image(self):
         show = super()._draw_curr_image()
         for x, y in self.curr_annotations:
