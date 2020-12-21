@@ -18,29 +18,30 @@ def _on_mouse_callback(event, x, y, flags, self):
 class Labeler:
     """标注类的基类. 其他标注类可以继承自本类.
 
-    为了简单起见, 假设所有的数据都放在root_dir中, 具体如下:
-    ${root_dir}/images:        图像文件目录
-    ${root_dir}/annotations:   标注文件目录
-    ${root_dir}/samples.txt:   样本列表文件, 每一行代表一个样本. 不能有扩展名.
-    ${root_dir}/snapshot.json: 标注进度文件
+    本类需要的参数由params传入, params为dict类型, 其中key的含义如下:
+    img_dir:  图像文件目录
+    ann_dir:  标注文件目录
+    samples:  样本列表文件, 每一行代表一个样本. 不能有扩展名.
+    snapshot: 标注进度文件
+
+    本类定义了以下基本动作:
+    [enter] or 'f':      前进一个样本
+    [backspace] or 'b':  后退一个样本
+    's':                 保存当前标注
 
     继承本类时, 需要注意:
     1. self.curr_annotations纪录当前样本的标注信息, 其初始值为: None
-    2. self.cache_data纪录标注过程中的中间信息, 其初始值为: None.
-       每次切换样本的时候, 这个变量的值也会被重置.
     """
 
-    def __init__(self, root_dir):
-        self.img_dir = os.path.join(root_dir, "images")
-        self.ann_dir = os.path.join(root_dir, "annotations")
-        self.snapshot_file = os.path.join(root_dir, "snapshot.json")
-        sample_file = os.path.join(root_dir, "samples.txt")
-        self.samples = lib.util.read_list_file(sample_file)
+    def __init__(self, params):
+        self.img_dir = params["img_dir"]
+        self.ann_dir = params["ann_dir"]
+        self.snapshot_file = params["snapshot"]
+        self.samples = lib.util.read_list_file(params["samples"])
         self.samples_id = self._load_snapshot()
         # 工作中的变量
         self.curr_image = None
         self.curr_annotations = None
-        self.cache_data = None
 
     def _load_snapshot(self):
         if os.path.exists(self.snapshot_file):
@@ -70,18 +71,16 @@ class Labeler:
     def _load_curr_sample(self):
         self.curr_image = self._load_image(self.samples_id)
         self.curr_annotations = self._load_annotations(self.samples_id)
-        self.cache_data = None
 
-    def _save_annotations(self, annotations):
+    def _save_annotations(self, annotations, samples_id):
         if not annotations: return
-        name = self.samples[self.samples_id] + ".json"
+        name = self.samples[samples_id] + ".json"
         path = os.path.join(self.ann_dir, name)
         lib.util.dump_to_json(annotations, path)
 
     def _save_curr_sample(self):
-        self._save_annotations(self.curr_annotations)
+        self._save_annotations(self.curr_annotations, self.samples_id)
         self._save_snapshot()
-        self.cache_data = None
 
     def _move(self, step):
         samples_id = self.samples_id + step
@@ -94,19 +93,24 @@ class Labeler:
             self.samples_id = samples_id
             self._load_curr_sample()
 
+    def _draw_text_lines(self, image, lines=None):
+        line1 = f"Progress: {self.samples_id+1}/{len(self.samples)}"
+        if isinstance(lines, str): lines = [lines]
+        lines = [line1] + lines if lines else [line1]
+        origin, color = (20, 20), (0, 0, 255)
+        return lib.util.draw_textlines(image, origin, lines, color)
+
     def _draw_curr_image(self):
         # 这里仅仅在图像中显示进度, 需要重载此函数来画标注信息
-        return lib.util.draw_textlines(
-            image=copy.deepcopy(self.curr_image),
-            origin=(20, 20),
-            textlines=[f"Progress: {self.samples_id+1}/{len(self.samples)}"],
-            color=(255, 255, 255))
+        self._draw_text_lines(copy.deepcopy(self.curr_image))
 
     # 如果需要鼠标响应事件, 请重载这个函数
     def _mouse_callback(self, event, x, y, flags):
         pass
 
     def _key_callback(self, key):
+        if key != 255 and key != -1:
+            logging.info("Pressed key: %d", key)
         if key == ord("\r"):
             self._move(1)
         elif key == ord("\b"):
@@ -131,6 +135,78 @@ class Labeler:
                 self._save_curr_sample()
                 break
             self._key_callback(key)
+
+
+class ScaleLabeler(Labeler):
+    """支持缩放的标注类.
+
+    因为scale会变化, 本类(及其继承类)所有的标注数据都相对于原始图像.
+    显示时, 需要将所有的标注映射回显示图像然后再作绘画.
+
+    本类定义了以下基本动作:
+    [enter] or 'f':      前进一个样本
+    [backspace] or 'b':  后退一个样本
+    's':                 保存当前标注
+    'a':                 返回到原始图像
+    鼠标滚轮:             放大/缩小图像
+    鼠标左键按下拖动:      选择roi区域
+    """
+
+    def __init__(self, params, scale=1.0):
+        super().__init__(params=params)
+        self.base_scale = scale
+        self.curr_scale = scale
+        self.curr_roi = None
+        self.cache_roi = None
+
+    def _load_curr_sample(self):
+        super()._load_curr_sample()
+        height, width = self.curr_image.shape[:2]
+        self.curr_roi = lib.labeler.BoundingBox(0, 0, width, height)
+        self.cache_roi = None
+
+    def _draw_curr_image(self):
+        x1, y1, x2, y2 = self.curr_roi.bbox
+        show = self.curr_image[y1:y2, x1:x2, :]
+        height, width = show.shape[:2]
+        new_height = int(round(height * self.curr_scale))
+        new_width = int(round(width * self.curr_scale))
+        show = cv2.resize(show, (new_width, new_height))
+        return self._draw_text_lines(copy.deepcopy(show))
+
+    def _mouse_callback(self, event, x, y, flags):
+        super()._mouse_callback(event, x, y, flags)
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.cache_roi = lib.labeler.BoundingBox()
+            self.cache_roi.x1 = x
+            self.cache_roi.y1 = y
+        elif event == cv2.EVENT_LBUTTONUP:
+            if self.cache_roi is not None:
+                self.cache_roi.x2 = x
+                self.cache_roi.y2 = y
+                if self.cache_roi.area > 2500:
+                    self.cache_roi.decrease(self.curr_scale)
+                    self.cache_roi.translate(*self.curr_roi.top_left)
+                    scale_1 = self.curr_roi.width / self.cache_roi.width
+                    scale_2 = self.curr_roi.height / self.cache_roi.height
+                    self.curr_scale *= min(scale_1, scale_2)
+                    self.curr_roi = self.cache_roi
+            self.cache_roi = None
+        elif event == cv2.EVENT_MOUSEMOVE:
+            if self.cache_roi is not None:
+                self.cache_roi.x2 = x
+                self.cache_roi.y2 = y
+        elif event == cv2.EVENT_MOUSEWHEEL:
+            scale = 0.99 if flags > 0 else 1.01
+            self.curr_scale *= scale
+
+    def _key_callback(self, key):
+        super()._key_callback(key)
+        if key == ord("a"):
+            self.curr_scale = self.base_scale
+            height, width = self.curr_image.shape[:2]
+            self.curr_roi = lib.labeler.BoundingBox(0, 0, width, height)
+            self.cache_roi = None
 
 
 if __name__ == "__main__":
