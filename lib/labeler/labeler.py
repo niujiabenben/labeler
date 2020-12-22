@@ -197,7 +197,7 @@ class ScaleLabeler(Labeler):
 
     def _draw_curr_image(self):
         show = self._extract_image(self.curr_image, self.curr_roi)
-        show = self._draw_text_lines(copy.deepcopy(show))
+        show = self._draw_text_lines(show)
         show = self._draw_bounding_box(show, self.cache_roi, (0, 0, 255), 1)
         return show
 
@@ -216,6 +216,7 @@ class ScaleLabeler(Labeler):
                     scale_1 = self.curr_roi.width / self.cache_roi.width
                     scale_2 = self.curr_roi.height / self.cache_roi.height
                     self.curr_scale *= min(scale_1, scale_2)
+                    self.curr_scale = max(self.curr_scale, 1.0)
                     self.curr_roi = self.cache_roi
             self.cache_roi = None
         elif event == cv2.EVENT_MOUSEMOVE:
@@ -226,7 +227,7 @@ class ScaleLabeler(Labeler):
             else:
                 self.cache_roi = None
         elif event == cv2.EVENT_MOUSEWHEEL:
-            scale = 0.99 if flags > 0 else 1.01
+            scale = 0.98 if flags > 0 else 1.02
             self.curr_scale *= scale
 
     def _key_callback(self, key):
