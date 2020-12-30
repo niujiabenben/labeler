@@ -51,7 +51,7 @@ class Labeler:
         return 0
 
     def _save_snapshot(self):
-        lib.util.dump_to_json({
+        lib.util.write_json_file({
             "samples_id": self.samples_id
         }, self.snapshot_file)
 
@@ -76,7 +76,7 @@ class Labeler:
         if not annotations: return
         name = self.samples[samples_id] + ".json"
         path = os.path.join(self.ann_dir, name)
-        lib.util.dump_to_json(annotations, path)
+        lib.util.write_json_file(annotations, path)
 
     def _save_curr_sample(self):
         self._save_annotations(self.curr_annotations, self.samples_id)
@@ -93,12 +93,11 @@ class Labeler:
             self.samples_id = samples_id
             self._load_curr_sample()
 
-    def _draw_text_lines(self, image, lines=None):
-        line1 = f"Progress: {self.samples_id+1}/{len(self.samples)}"
-        if isinstance(lines, str): lines = [lines]
-        lines = [line1] + lines if lines else [line1]
+    def _draw_text_lines(self, image):
+        # 这里仅仅写上标注进度, 如需写其他信息可以重载这个函数
         origin, color = (20, 20), (0, 0, 255)
-        return lib.util.draw_textlines(image, origin, lines, color)
+        line = f"Progress: {self.samples_id+1}/{len(self.samples)}"
+        return lib.util.draw_textlines(image, origin, line, color)
 
     def _draw_curr_image(self):
         # 这里仅仅在图像中显示进度, 需要重载此函数来画标注信息
@@ -109,8 +108,8 @@ class Labeler:
         pass
 
     def _key_callback(self, key):
-        if key != 255 and key != -1:
-            logging.info("Pressed key: %d", key)
+        if key == 255 or key == -1: return
+        logging.info("Pressed key: %d", key)
         if key == ord("\r"):
             self._move(1)
         elif key == ord("\b"):
@@ -143,10 +142,7 @@ class ScaleLabeler(Labeler):
     因为scale会变化, 本类(及其继承类)所有的标注数据都相对于原始图像.
     显示时, 需要将所有的标注映射回显示图像然后再作绘画.
 
-    本类定义了以下基本动作:
-    [enter] or 'f':      前进一个样本
-    [backspace] or 'b':  后退一个样本
-    's':                 保存当前标注
+    本类在基类Labeler的基础上新增了一下动作:
     'a':                 返回到原始图像
     鼠标滚轮:             放大/缩小图像
     鼠标左键按下拖动:      选择roi区域
@@ -216,7 +212,7 @@ class ScaleLabeler(Labeler):
                     scale_1 = self.curr_roi.width / self.cache_roi.width
                     scale_2 = self.curr_roi.height / self.cache_roi.height
                     self.curr_scale *= min(scale_1, scale_2)
-                    self.curr_scale = max(self.curr_scale, 1.0)
+                    self.curr_scale = max(self.curr_scale, 1.2)
                     self.curr_roi = self.cache_roi
             self.cache_roi = None
         elif event == cv2.EVENT_MOUSEMOVE:
@@ -227,7 +223,8 @@ class ScaleLabeler(Labeler):
             else:
                 self.cache_roi = None
         elif event == cv2.EVENT_MOUSEWHEEL:
-            scale = 0.98 if flags > 0 else 1.02
+            change = 0.02 if self.curr_scale < self.base_scale else 0.01
+            scale = 1.0 - change if flags > 0 else 1.0 + change
             self.curr_scale *= scale
 
     def _key_callback(self, key):
