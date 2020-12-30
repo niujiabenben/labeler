@@ -35,6 +35,7 @@ def stitch_images(images, width=512, height=384, fill=(0, 0, 0)):
     """
 
     assert len(images) <= 9
+    rows = cols = 1
     if len(images) <= 1:
         rows, cols = 1, 1
     elif len(images) <= 2:

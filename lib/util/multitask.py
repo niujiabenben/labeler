@@ -2,7 +2,6 @@
 # coding: utf-8
 
 import time
-import dill
 import logging
 import multiprocessing
 
@@ -16,18 +15,16 @@ class TaskProcess(multiprocessing.Process):
     def __init__(self, task_class, task_args, input_queue, output_queue):
         super().__init__()
         assert hasattr(task_class, "process")
-        self.task_class = dill.dumps(task_class)
-        self.task_args = dill.dumps(task_args)
+        self.task_class = task_class
+        self.task_args = task_args
         self.input_queue = input_queue
         self.output_queue = output_queue
 
     def run(self):
-        task_class = dill.loads(self.task_class)
-        task_args = dill.loads(self.task_args)
-        if isinstance(task_args, tuple):
-            task = task_class(*task_args)
+        if isinstance(self.task_args, tuple):
+            task = self.task_class(*self.task_args)
         else:
-            task = task_class(task_args)
+            task = self.task_class(self.task_args)
         while True:
             sid, sample = self.input_queue.get()
             if sample is None: break
@@ -37,7 +34,7 @@ class TaskProcess(multiprocessing.Process):
                 self.output_queue.put((sid, task.process(sample)))
 
 
-class ProxyTaskClass:
+class _ProxyTaskClass:
     """本类将函数转包装成类. 供TaskProcess使用."""
 
     def __init__(self, taskfun, args):
@@ -175,7 +172,7 @@ class TaskPool:
             如下: taskfun(sample, args), 如果sample或者args为tuple, 则将其
             展开: taskfun(*sample, *args).
         """
-        return TaskPool(ProxyTaskClass, [(taskfun, args)] * numthreads)
+        return TaskPool(_ProxyTaskClass, [(taskfun, args)] * numthreads)
 
     @staticmethod
     def map(numthreads, taskfun, samples, args=tuple(), batch_size=0):

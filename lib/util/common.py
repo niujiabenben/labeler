@@ -22,22 +22,6 @@ def prepare_dir(path):
         os.makedirs(dirname, exist_ok=True)
 
 
-def dump_to_file(data, path):
-    """Dump data to file."""
-
-    prepare_dir(path)
-    with open(path, "wb") as dstfile:
-        pickle.dump(data, dstfile, protocol=2)
-
-
-def dump_to_json(data, path):
-    "Dump data to file in json format."
-
-    prepare_dir(path)
-    with open(path, "w") as dstfile:
-        json.dump(data, dstfile, indent=2)
-
-
 def read_pickle_file(path):
     "Read file in pickle format."
 
@@ -81,6 +65,33 @@ def read_map_file(path):
     with open(path, "r") as srcfile:
         lines = [l.strip().split() for l in srcfile]
     return dict(lines)
+
+
+def write_pickle_file(data, path):
+    """Write data to pickle file."""
+
+    prepare_dir(path)
+    with open(path, "wb") as dstfile:
+        pickle.dump(data, dstfile, protocol=2)
+
+
+def write_json_file(data, path):
+    """Write data to json file."""
+
+    prepare_dir(path)
+    with open(path, "w") as dstfile:
+        json.dump(data, dstfile, indent=2)
+
+
+def write_list_file(data, path, sep=" "):
+    """Write list to txt file."""
+
+    prepare_dir(path)
+    with open(path, "w") as dstfile:
+        for line in data:
+            if isinstance(line, (tuple, list)):
+                line = sep.join([str(item) for item in line])
+            dstfile.write(line + "\n")
 
 
 def initialize_logger(name=None, file=None, display=True):
