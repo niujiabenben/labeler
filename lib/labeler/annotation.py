@@ -114,7 +114,8 @@ class Line:
 
     @staticmethod
     def create_from_pointa(x0, y0, angle):  # 点斜式, 方向角表示
-        return Line.create_from_pointk(x0, y0, math.cos(angle), math.sin(angle))
+        a, b = math.cos(angle), math.sin(angle)
+        return Line.create_from_pointk(x0, y0, a, b)
 
     def get_x(self, y):
         return -(self.b * y + self.c) / self.a
@@ -130,44 +131,67 @@ class Line:
         return x, y
 
     def move_to_point(self, x, y):
-        self.c = - (self.a * x + self.b * y)
+        self.c = -(self.a * x + self.b * y)
         self._normalize()
+        return self
+
+    def move_to_point_copy(self, x, y):
+        return Line(self.a, self.a, -(self.a * x + self.b * y))
 
     def to_list(self):
         return [self.a, self.b, self.c]
 
     def parallel_to(self, other):
-        return abs(self.a * other.b - other.a * self.b) < self.epsilon
+        return self.get_angle_with_line(other) < self.epsilon
 
     def parallel_to_axis_x(self):
-        return abs(self.a) < self.epsilon
+        return self.parallel_to(Line.create_from_points(0, 0, 1, 0))
 
     def parallel_to_axis_y(self):
-        return abs(self.b) < self.epsilon
+        return self.parallel_to(Line.create_from_points(0, 0, 0, 1))
 
-    # 返回以弧度为单位的倾斜角, 范围: (-pi, pi]
+    def get_angle_with_line(self, other):
+        """返回两直线夹角, 范围为: [0, pi/2]"""
+
+        numerator = self.a * other.a + self.b * other.b
+        self_norm = self.a * self.a + self.b * self.b
+        other_norm = other.a * other.a + other.b * other.b
+        denominator = math.sqrt(self_norm * other_norm)
+        cos_theta = math.fabs(numerator / denominator)
+        # 某些情况下, 由于有计算误差, 所以cos_theta的值可能比1大一点点
+        cos_theta = min(cos_theta, 1.0)
+        return math.acos(cos_theta)
+
     def get_slant_angle(self):
-        # 方向向量为: (b, -a)
-        return math.atan2(-self.a, self.b)
+        """返回倾斜角, 范围为: [0, pi]"""
+
+        axis_x = Line.create_from_points(0, 0, 1, 0)
+        angle = self.get_angle_with_line(axis_x)
+        if self.a * self.b > 0: angle = math.pi - angle
+        return angle
 
     def get_distance(self, x=0, y=0):
         numerator = self.a * x + self.b * y + self.c
         denominator = math.sqrt(self.a ** 2 + self.b ** 2)
         return math.fabs(numerator) / denominator
 
-    def left_to(self, x, y):  # 线在点的左边
+    # 线在点的左边
+    def left_to(self, x, y):
         if self.parallel_to_axis_x(): return False
         return self.get_x(y) < x
 
-    def right_to(self, x, y):  # 线在点的右边
+    # 线在点的右边
+    def right_to(self, x, y):
         if self.parallel_to_axis_x(): return False
         return self.get_x(y) > x
 
-    def above_to(self, x, y):  # 线在点的上边
+    # 线在点的上边, 注意这里坐标系和图像坐标系不同
+    def above_to(self, x, y):
         if self.parallel_to_axis_y(): return False
         return self.get_y(x) > y
 
-    def below_to(self, x, y):  # 线在点的下边
+    # 线在点的下边, 注意这里坐标系和图像坐标系不同
+    def below_to(self, x, y):
         if self.parallel_to_axis_y(): return False
         return self.get_y(x) < y
 
